@@ -410,7 +410,12 @@
     Telegram.WebApp.setBackgroundColor('#0a0010');
   }
 
-  const STREAM_URL = 'https://cast2.my-ais.net/8022/stream';
+  const STREAM_URLS = [
+    'https://listen2.myradio24.com/unicorn',
+    'https://streaming.slam.nl/web11_mp3',
+    'http://cast2.my-ais.net:8022/stream',
+  ];
+  let urlIndex = 0;
   const audio = document.getElementById('radio');
   const playBtn = document.getElementById('playBtn');
   const playIcon = document.getElementById('playIcon');
@@ -434,9 +439,11 @@
     visualizer.classList.add('active');
     playBtn.classList.add('playing');
     errorMsg.classList.remove('show');
+    urlIndex = 0;
   });
 
   audio.addEventListener('pause', () => {
+    if (!isPlaying) return;
     statusText.textContent = 'Пауза';
     statusDot.className = 'status-dot';
     visualizer.classList.remove('active');
@@ -444,13 +451,24 @@
   });
 
   audio.addEventListener('error', () => {
-    statusText.textContent = 'Ошибка';
-    statusDot.className = 'status-dot';
-    visualizer.classList.remove('active');
-    playBtn.classList.remove('playing');
-    playIcon.textContent = '▶';
-    isPlaying = false;
-    errorMsg.classList.add('show');
+    if (!isPlaying) return;
+    urlIndex++;
+    if (urlIndex < STREAM_URLS.length) {
+      statusText.textContent = 'Пробую другой адрес...';
+      setTimeout(() => {
+        audio.src = STREAM_URLS[urlIndex];
+        audio.play().catch(() => {});
+      }, 1000);
+    } else {
+      statusText.textContent = 'Нет сигнала';
+      statusDot.className = 'status-dot';
+      visualizer.classList.remove('active');
+      playBtn.classList.remove('playing');
+      playIcon.textContent = '▶';
+      isPlaying = false;
+      errorMsg.innerHTML = '⚠️ Радиостанция сейчас не вещает.<br>Попробуй позже.';
+      errorMsg.classList.add('show');
+    }
   });
 
   function togglePlay() {
@@ -459,15 +477,15 @@
       audio.src = '';
       playIcon.textContent = '▶';
       isPlaying = false;
+      statusText.textContent = 'Остановлено';
+      statusDot.className = 'status-dot';
+      visualizer.classList.remove('active');
+      playBtn.classList.remove('playing');
     } else {
       errorMsg.classList.remove('show');
-      audio.src = STREAM_URL;
-      audio.play().catch(() => {
-        errorMsg.classList.add('show');
-        statusText.textContent = 'Ошибка';
-        isPlaying = false;
-        playIcon.textContent = '▶';
-      });
+      urlIndex = 0;
+      audio.src = STREAM_URLS[urlIndex];
+      audio.play().catch(() => {});
       playIcon.textContent = '⏹';
       statusText.textContent = 'Подключение...';
       isPlaying = true;
