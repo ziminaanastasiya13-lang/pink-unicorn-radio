@@ -577,47 +577,56 @@
 
   async function fetchNowPlaying() {
     try {
-      // Используем публичный API онлайн-радио с поддержкой CORS
-      const res = await fetch('https://api.zeno.fm/mounts/metadata/subscribe/pinkunicorn');
+      // Используем allorigins прокси для получения данных с onlineradiobox
+      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/?lang=en';
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.streamTitle) {
-          const parts = data.streamTitle.split(' - ');
-          npArtist.textContent = parts[0] || 'Pink Unicorn Radio';
-          npTrack.textContent = parts[1] || '🎵 Live';
-          return;
+        if (data && data.contents) {
+          // Ищем первый трек в плейлисте
+          const match = data.contents.match(/class="track__title"[^>]*>\s*<span[^>]*>([^<]+)<\/span>\s*—\s*<span[^>]*>([^<]+)<\/span>/);
+          if (match) {
+            npArtist.textContent = match[1].trim();
+            npTrack.textContent = match[2].trim();
+            return;
+          }
+          // Альтернативный паттерн
+          const match2 = data.contents.match(/cs-play[^>]+>[^<]*<[^>]+>([^<]+)<[^>]+>\s*—\s*([^<]+)</);
+          if (match2) {
+            npArtist.textContent = match2[1].trim();
+            npTrack.textContent = match2[2].trim();
+            return;
+          }
+          // Ищем любой паттерн "Исполнитель — Трек"
+          const match3 = data.contents.match(/\"now\"[^>]*>.*?<b>([^<]+)<\/b>\s*[—-]\s*([^<]+)</s);
+          if (match3) {
+            npArtist.textContent = match3[1].trim();
+            npTrack.textContent = match3[2].trim();
+            return;
+          }
         }
       }
     } catch(e) {}
 
     try {
-      // Запрашиваем через allorigins прокси
-      const url = 'https://myradio24.com/unicorn';
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+      // Второй вариант — через radio-browser metadata
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://cast2.my-ais.net/8022/status-json.xsl')}`);
       if (res.ok) {
         const data = await res.json();
-        const match = data.contents && data.contents.match(/now_playing[^>]*>([^<]{3,})</);
-        if (match) {
-          const parts = match[1].trim().split(' - ');
-          npArtist.textContent = parts[0] || '—';
-          npTrack.textContent = parts.slice(1).join(' - ') || '—';
-          return;
-        }
-
-        // Попробуем другой паттерн
-        const match2 = data.contents && data.contents.match(/\"title\":\"([^\"]+)\"/);
-        if (match2) {
-          const parts = match2[1].split(' - ');
-          npArtist.textContent = parts[0] || '—';
-          npTrack.textContent = parts.slice(1).join(' - ') || '—';
+        const json = JSON.parse(data.contents);
+        const title = json?.icestats?.source?.title;
+        if (title && title !== 'Unknown') {
+          const parts = title.split(' - ');
+          npArtist.textContent = parts[0]?.trim() || '—';
+          npTrack.textContent = parts.slice(1).join(' - ').trim() || '—';
           return;
         }
       }
     } catch(e) {}
 
-    // Fallback
+    // Последний fallback
     npArtist.textContent = 'Pink Unicorn Radio';
-    npTrack.textContent = '🎵 Live Stream';
+    npTrack.textContent = '🎵 Live';
   }
 
   function startMeta() {
