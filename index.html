@@ -577,54 +577,29 @@
 
   async function fetchNowPlaying() {
     try {
-      // Используем allorigins прокси для получения данных с onlineradiobox
       const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/?lang=en';
       const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.contents) {
-          // Ищем первый трек в плейлисте
-          const match = data.contents.match(/class="track__title"[^>]*>\s*<span[^>]*>([^<]+)<\/span>\s*—\s*<span[^>]*>([^<]+)<\/span>/);
+          // Ищем строку "Live | Исполнитель - Трек"
+          const match = data.contents.match(/Live\s*<\/td>\s*<td[^>]*>.*?\/track\/[^>]+>([^<]+)<\/a>/s);
           if (match) {
-            npArtist.textContent = match[1].trim();
-            npTrack.textContent = match[2].trim();
-            return;
-          }
-          // Альтернативный паттерн
-          const match2 = data.contents.match(/cs-play[^>]+>[^<]*<[^>]+>([^<]+)<[^>]+>\s*—\s*([^<]+)</);
-          if (match2) {
-            npArtist.textContent = match2[1].trim();
-            npTrack.textContent = match2[2].trim();
-            return;
-          }
-          // Ищем любой паттерн "Исполнитель — Трек"
-          const match3 = data.contents.match(/\"now\"[^>]*>.*?<b>([^<]+)<\/b>\s*[—-]\s*([^<]+)</s);
-          if (match3) {
-            npArtist.textContent = match3[1].trim();
-            npTrack.textContent = match3[2].trim();
+            const full = match[1].trim();
+            const dash = full.indexOf(' - ');
+            if (dash !== -1) {
+              npArtist.textContent = full.substring(0, dash).trim();
+              npTrack.textContent = full.substring(dash + 3).trim();
+            } else {
+              npArtist.textContent = full;
+              npTrack.textContent = '';
+            }
             return;
           }
         }
       }
     } catch(e) {}
 
-    try {
-      // Второй вариант — через radio-browser metadata
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://cast2.my-ais.net/8022/status-json.xsl')}`);
-      if (res.ok) {
-        const data = await res.json();
-        const json = JSON.parse(data.contents);
-        const title = json?.icestats?.source?.title;
-        if (title && title !== 'Unknown') {
-          const parts = title.split(' - ');
-          npArtist.textContent = parts[0]?.trim() || '—';
-          npTrack.textContent = parts.slice(1).join(' - ').trim() || '—';
-          return;
-        }
-      }
-    } catch(e) {}
-
-    // Последний fallback
     npArtist.textContent = 'Pink Unicorn Radio';
     npTrack.textContent = '🎵 Live';
   }
