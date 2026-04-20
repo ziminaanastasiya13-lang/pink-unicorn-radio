@@ -491,13 +491,14 @@
   audio.volume = 0.8;
 
   // Media Session для фонового режима
-  function updateMediaSession(artist, track) {
+  function updateMediaSession(artist, track, artworkUrl) {
     if ('mediaSession' in navigator) {
+      const img = artworkUrl || 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png';
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track || 'Live Stream',
         artist: artist || 'Pink Unicorn Radio',
         album: 'Rock · Metal · Alternative',
-        artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
+        artwork: [{ src: img, sizes: '512x512', type: 'image/jpeg' }]
       });
       navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) togglePlay(); });
       navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) togglePlay(); });
@@ -611,7 +612,9 @@
         if (data.artist && data.artist !== 'Pink Unicorn Radio') {
           npArtist.textContent = data.artist;
           npTrack.textContent = data.track || '';
-          updateMediaSession(data.artist, data.track);
+          // Ищем обложку через iTunes API
+          const artwork = await fetchArtwork(data.artist, data.track);
+          updateMediaSession(data.artist, data.track, artwork);
           return;
         }
       }
@@ -621,6 +624,21 @@
       npTrack.textContent = '🎵 Live';
       updateMediaSession('Pink Unicorn Radio', 'Live Stream');
     }
+  }
+
+  async function fetchArtwork(artist, track) {
+    try {
+      const q = encodeURIComponent(`${artist} ${track}`);
+      const res = await fetch(`https://itunes.apple.com/search?term=${q}&media=music&limit=1`, {signal: AbortSignal.timeout(4000)});
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          // Берём обложку в высоком качестве
+          return data.results[0].artworkUrl100.replace('100x100', '512x512');
+        }
+      }
+    } catch(e) {}
+    return 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png';
   }
 
   function startMeta() {
