@@ -681,8 +681,16 @@
   let currentArtist = '';
   let currentTrack = '';
 
-  // Генерируем уникальный ID пользователя
+  // Получаем ID пользователя из Telegram или localStorage
   function getUserId() {
+    // Пробуем получить Telegram user ID
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+      if (tgUser && tgUser.id) {
+        return 'tg' + tgUser.id;
+      }
+    }
+    // Fallback — постоянный ID в localStorage
     let uid = localStorage.getItem('radio_user_id');
     if (!uid) {
       uid = 'u' + Date.now() + Math.random().toString(36).slice(2, 7);
@@ -723,7 +731,7 @@
         } else {
           window.open(loginUrl, '_blank');
         }
-        likeMsg.textContent = '🔒 Войди в Spotify и нажми ❤️ снова';
+        likeMsg.textContent = '🔒 Войди в Spotify в браузере и нажми ❤️ снова';
         return;
       }
 
