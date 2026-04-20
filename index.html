@@ -489,7 +489,15 @@
   let isPlaying = false;
 
   audio.volume = 0.8;
-
+// Media Session для фонового режима
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Live Stream',
+    artist: 'Pink Unicorn Radio',
+    album: 'Rock · Metal · Alternative',
+    artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
+  });
+}
   audio.addEventListener('waiting', () => {
     statusText.textContent = 'Загрузка...';
     statusDot.className = 'status-dot';
@@ -592,6 +600,7 @@
         const data = await res.json();
         if (data.artist && data.artist !== 'Pink Unicorn Radio') {
           npArtist.textContent = data.artist;
+         updateMediaSession(data.artist, data.track);
           npTrack.textContent = data.track || '';
           return;
         }
@@ -603,10 +612,22 @@
     }
   }
 
+  ffunction updateMediaSession(artist, track) {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track || 'Live Stream',
+        artist: artist || 'Pink Unicorn Radio',
+        album: 'Rock · Metal · Alternative',
+        artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
+      });
+    }
+  }
+
   function startMeta() {
     nowPlaying.style.display = 'block';
     npArtist.textContent = '⏳ Загрузка...';
     npTrack.textContent = '';
+    updateMediaSession('Pink Unicorn Radio', 'Live Stream');
     fetchNowPlaying();
     metaInterval = setInterval(fetchNowPlaying, 20000);
   }
