@@ -675,92 +675,31 @@
     if (metaInterval) { clearInterval(metaInterval); metaInterval = null; }
   }
 
-  // ──────────── SPOTIFY ИНТЕГРАЦИЯ ────────────
-  const SPOTIFY_CLIENT_ID = 'f146531bb7924a378c94c672ec31faa3';
-  const SPOTIFY_REDIRECT = 'https://ziminaanastasiya13-lang.github.io/pink-unicorn-radio/';
-  const SPOTIFY_SCOPES = 'playlist-modify-public playlist-modify-private';
-  let spotifyToken = null;
+  // ──────────── SPOTIFY ────────────
+  const SPOTIFY_API = 'https://pink-unicorn-bot-production.up.railway.app';
+  let userId = null;
   let currentArtist = '';
   let currentTrack = '';
 
-  // Проверяем токен при загрузке (после редиректа)
-  function checkSpotifyCallback() {
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1));
-      const token = params.get('access_token');
-      if (token) {
-        spotifyToken = token;
-        sessionStorage.setItem('spotify_token', token);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        if (currentArtist && currentTrack) addToSpotify();
-      }
+  // Генерируем уникальный ID пользователя
+  function getUserId() {
+    let uid = localStorage.getItem('radio_user_id');
+    if (!uid) {
+      uid = 'u' + Date.now() + Math.random().toString(36).slice(2, 7);
+      localStorage.setItem('radio_user_id', uid);
     }
-    const saved = sessionStorage.getItem('spotify_token');
-    if (saved) spotifyToken = saved;
+    return uid;
   }
+  userId = getUserId();
 
-  function loginSpotify() {
-    const url = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT)}&scope=${encodeURIComponent(SPOTIFY_SCOPES)}`;
-    window.location.href = url;
-  }
-
-  async function addToSpotify() {
-    const likeMsg = document.getElementById('likeMsg');
-    const likeBtn = document.getElementById('likeBtn');
-    likeMsg.textContent = '🔍 Ищу трек в Spotify...';
+  async function checkSpotifyCallback() {
     try {
-      // Ищем трек
-      const q = encodeURIComponent(`${currentArtist} ${currentTrack}`);
-      const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
-        headers: { 'Authorization': `Bearer ${spotifyToken}` }
-      });
-      if (searchRes.status === 401) {
-        spotifyToken = null;
-        sessionStorage.removeItem('spotify_token');
-        likeMsg.textContent = '🔒 Нужна авторизация';
-        loginSpotify();
-        return;
+      const res = await fetch(`${SPOTIFY_API}/spotify/check?user=${userId}`);
+      const data = await res.json();
+      if (data.connected) {
+        document.getElementById('likeBtn').textContent = '❤️ Добавить в Spotify';
       }
-      const searchData = await searchRes.json();
-      const track = searchData.tracks?.items?.[0];
-      if (!track) { likeMsg.textContent = '❌ Трек не найден в Spotify'; return; }
-
-      // Получаем ID пользователя
-      const meRes = await fetch('https://api.spotify.com/v1/me', {
-        headers: { 'Authorization': `Bearer ${spotifyToken}` }
-      });
-      const me = await meRes.json();
-
-      // Ищем или создаём плейлист "Pink Unicorn Radio"
-      const plRes = await fetch(`https://api.spotify.com/v1/users/${me.id}/playlists?limit=50`, {
-        headers: { 'Authorization': `Bearer ${spotifyToken}` }
-      });
-      const plData = await plRes.json();
-      let playlist = plData.items?.find(p => p.name === 'Pink Unicorn Radio');
-
-      if (!playlist) {
-        const createRes = await fetch(`https://api.spotify.com/v1/users/${me.id}/playlists`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${spotifyToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Pink Unicorn Radio', description: 'Треки с Pink Unicorn Radio 🦄', public: false })
-        });
-        playlist = await createRes.json();
-      }
-
-      // Добавляем трек
-      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${spotifyToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uris: [track.uri] })
-      });
-
-      likeBtn.classList.add('liked');
-      document.getElementById('likeIcon').textContent = '💚';
-      likeMsg.textContent = `✅ Добавлено: ${track.name}`;
-    } catch(e) {
-      likeMsg.textContent = '❌ Ошибка, попробуй снова';
-    }
+    } catch(e) {}
   }
 
   async function likeTrack() {
@@ -768,11 +707,51 @@
       document.getElementById('likeMsg').textContent = '⏳ Дождись загрузки трека';
       return;
     }
-    if (!spotifyToken) {
-      loginSpotify();
-      return;
+    const likeMsg = document.getElementById('likeMsg');
+    const likeBtn = document.getElementById('likeBtn');
+
+    // Проверяем подключение
+    try {
+      const checkRes = await fetch(`${SPOTIFY_API}/spotify/check?user=${userId}`);
+      const checkData = await checkRes.json();
+
+      if (!checkData.connected) {
+        // Открываем авторизацию в браузере
+        const loginUrl = `${SPOTIFY_API}/spotify/login?user=${userId}`;
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.openLink(loginUrl);
+        } else {
+          window.open(loginUrl, '_blank');
+        }
+        likeMsg.textContent = '🔒 Войди в Spotify и нажми ❤️ снова';
+        return;
+      }
+
+      // Добавляем трек
+      likeMsg.textContent = '⏳ Добавляю...';
+      const a = encodeURIComponent(currentArtist);
+      const t = encodeURIComponent(currentTrack);
+      const addRes = await fetch(`${SPOTIFY_API}/spotify/add?user=${userId}&artist=${a}&track=${t}`);
+      const addData = await addRes.json();
+
+      if (addData.ok) {
+        likeBtn.classList.add('liked');
+        document.getElementById('likeIcon').textContent = '💚';
+        likeMsg.textContent = `✅ ${addData.track}`;
+      } else if (addData.error === 'not_connected') {
+        likeMsg.textContent = '🔒 Войди в Spotify снова';
+        const loginUrl = `${SPOTIFY_API}/spotify/login?user=${userId}`;
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.openLink(loginUrl);
+        }
+      } else if (addData.error === 'not_found') {
+        likeMsg.textContent = '❌ Трек не найден в Spotify';
+      } else {
+        likeMsg.textContent = '❌ Ошибка, попробуй снова';
+      }
+    } catch(e) {
+      likeMsg.textContent = '❌ Нет соединения с сервером';
     }
-    await addToSpotify();
   }
 
   checkSpotifyCallback();
