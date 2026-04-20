@@ -585,40 +585,22 @@
     return true;
   }
 
-  async function fetchNowPlaying() {
-    // Метод 1: corsproxy.io
+ async function fetchNowPlaying() {
     try {
-      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/';
-      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), {signal: AbortSignal.timeout(5000)});
+      const res = await fetch('https://pink-unicorn-bot-production.up.railway.app/', {signal: AbortSignal.timeout(5000)});
       if (res.ok) {
-        const html = await res.text();
-        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
-        if (m && setTrack(m[1])) return;
+        const data = await res.json();
+        if (data.artist && data.artist !== 'Pink Unicorn Radio') {
+          npArtist.textContent = data.artist;
+          npTrack.textContent = data.track || '';
+          return;
+        }
       }
     } catch(e) {}
-
-    // Метод 2: allorigins
-    try {
-      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/';
-      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), {signal: AbortSignal.timeout(5000)});
-      if (res.ok) {
-        const html = await res.text();
-        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
-        if (m && setTrack(m[1])) return;
-      }
-    } catch(e) {}
-
-    // Метод 3: htmldate через другой прокси
-    try {
-      const res = await fetch('https://thingproxy.freeboard.io/fetch/https://onlineradiobox.com/uz/pinkunicorn/playlist/', {signal: AbortSignal.timeout(5000)});
-      if (res.ok) {
-        const html = await res.text();
-        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
-        if (m && setTrack(m[1])) return;
-      }
-    } catch(e) {}
-
-    // Если ничего не сработало — не меняем текст
+    if (npArtist.textContent === '⏳ Загрузка...') {
+      npArtist.textContent = '—';
+      npTrack.textContent = '—';
+    }
   }
 
   function startMeta() {
