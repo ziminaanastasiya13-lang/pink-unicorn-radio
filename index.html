@@ -320,6 +320,31 @@
     text-overflow: ellipsis;
   }
 
+  /* Кнопка лайка Spotify */
+  .like-btn {
+    margin-top: 10px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #1DB954;
+    background: rgba(29,185,84,0.1);
+    color: #1DB954;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .like-btn:active { transform: scale(0.97); }
+  .like-btn.liked { background: rgba(29,185,84,0.3); }
+  .like-msg {
+    font-size: 11px;
+    margin-top: 6px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    min-height: 16px;
+  }
+
   /* Инфо блок */
   .info-row {
     width: 100%;
@@ -396,7 +421,7 @@
   <div class="logo-wrap">
     <div class="unicorn-icon">🦄</div>
     <div class="station-name">Pink Unicorn<br>Radio</div>
-<div class="genre-tag">Rock · Metal · Alternative</div>
+    <div class="genre-tag">Rock · Metal · Alternative</div>
   </div>
 
   <div class="visualizer" id="visualizer">
@@ -432,6 +457,10 @@
       <div class="np-label">🎵 Сейчас играет</div>
       <div class="np-artist" id="npArtist">—</div>
       <div class="np-track" id="npTrack">—</div>
+      <button class="like-btn" id="likeBtn" onclick="likeTrack()" style="display:none">
+        <span id="likeIcon">🤍</span> Добавить в Spotify
+      </button>
+      <div class="like-msg" id="likeMsg"></div>
     </div>
 
     <div class="info-row">
@@ -441,7 +470,7 @@
       </div>
       <div class="info-item">
         <div class="info-label">Страна</div>
-        <div class="info-value" style="font-size:10px">🇺🇿 UZ</div>
+        <div class="info-value" style="font-size:16px">🇺🇿</div>
       </div>
       <div class="info-item">
         <div class="info-label">Основан</div>
@@ -606,15 +635,21 @@
 
   async function fetchNowPlaying() {
     try {
-      const res = await fetch(API_URL, {signal: AbortSignal.timeout(5000)});
+      const res = await fetch(API_URL, {signal: AbortSignal.timeout(6000)});
       if (res.ok) {
         const data = await res.json();
         if (data.artist && data.artist !== 'Pink Unicorn Radio') {
           npArtist.textContent = data.artist;
           npTrack.textContent = data.track || '';
-          // Ищем обложку через iTunes API
-          const artwork = await fetchArtwork(data.artist, data.track);
-          updateMediaSession(data.artist, data.track, artwork);
+          currentArtist = data.artist;
+          currentTrack = data.track || '';
+          updateMediaSession(data.artist, data.track, data.artwork);
+          // Показываем кнопку лайка и сбрасываем состояние
+          const likeBtn = document.getElementById('likeBtn');
+          likeBtn.style.display = 'block';
+          likeBtn.classList.remove('liked');
+          document.getElementById('likeIcon').textContent = '🤍';
+          document.getElementById('likeMsg').textContent = '';
           return;
         }
       }
@@ -624,21 +659,6 @@
       npTrack.textContent = '🎵 Live';
       updateMediaSession('Pink Unicorn Radio', 'Live Stream');
     }
-  }
-
-  async function fetchArtwork(artist, track) {
-    try {
-      const q = encodeURIComponent(`${artist} ${track}`);
-      const res = await fetch(`https://itunes.apple.com/search?term=${q}&media=music&limit=1`, {signal: AbortSignal.timeout(4000)});
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          // Берём обложку в высоком качестве
-          return data.results[0].artworkUrl100.replace('100x100', '512x512');
-        }
-      }
-    } catch(e) {}
-    return 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png';
   }
 
   function startMeta() {
@@ -654,6 +674,108 @@
     nowPlaying.style.display = 'none';
     if (metaInterval) { clearInterval(metaInterval); metaInterval = null; }
   }
+
+  // ──────────── SPOTIFY ИНТЕГРАЦИЯ ────────────
+  const SPOTIFY_CLIENT_ID = 'f146531bb7924a378c94c672ec31faa3';
+  const SPOTIFY_REDIRECT = 'https://ziminaanastasiya13-lang.github.io/pink-unicorn-radio/';
+  const SPOTIFY_SCOPES = 'playlist-modify-public playlist-modify-private';
+  let spotifyToken = null;
+  let currentArtist = '';
+  let currentTrack = '';
+
+  // Проверяем токен при загрузке (после редиректа)
+  function checkSpotifyCallback() {
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        spotifyToken = token;
+        sessionStorage.setItem('spotify_token', token);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        if (currentArtist && currentTrack) addToSpotify();
+      }
+    }
+    const saved = sessionStorage.getItem('spotify_token');
+    if (saved) spotifyToken = saved;
+  }
+
+  function loginSpotify() {
+    const url = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT)}&scope=${encodeURIComponent(SPOTIFY_SCOPES)}`;
+    window.location.href = url;
+  }
+
+  async function addToSpotify() {
+    const likeMsg = document.getElementById('likeMsg');
+    const likeBtn = document.getElementById('likeBtn');
+    likeMsg.textContent = '🔍 Ищу трек в Spotify...';
+    try {
+      // Ищем трек
+      const q = encodeURIComponent(`${currentArtist} ${currentTrack}`);
+      const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
+        headers: { 'Authorization': `Bearer ${spotifyToken}` }
+      });
+      if (searchRes.status === 401) {
+        spotifyToken = null;
+        sessionStorage.removeItem('spotify_token');
+        likeMsg.textContent = '🔒 Нужна авторизация';
+        loginSpotify();
+        return;
+      }
+      const searchData = await searchRes.json();
+      const track = searchData.tracks?.items?.[0];
+      if (!track) { likeMsg.textContent = '❌ Трек не найден в Spotify'; return; }
+
+      // Получаем ID пользователя
+      const meRes = await fetch('https://api.spotify.com/v1/me', {
+        headers: { 'Authorization': `Bearer ${spotifyToken}` }
+      });
+      const me = await meRes.json();
+
+      // Ищем или создаём плейлист "Pink Unicorn Radio"
+      const plRes = await fetch(`https://api.spotify.com/v1/users/${me.id}/playlists?limit=50`, {
+        headers: { 'Authorization': `Bearer ${spotifyToken}` }
+      });
+      const plData = await plRes.json();
+      let playlist = plData.items?.find(p => p.name === 'Pink Unicorn Radio');
+
+      if (!playlist) {
+        const createRes = await fetch(`https://api.spotify.com/v1/users/${me.id}/playlists`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${spotifyToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Pink Unicorn Radio', description: 'Треки с Pink Unicorn Radio 🦄', public: false })
+        });
+        playlist = await createRes.json();
+      }
+
+      // Добавляем трек
+      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${spotifyToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: [track.uri] })
+      });
+
+      likeBtn.classList.add('liked');
+      document.getElementById('likeIcon').textContent = '💚';
+      likeMsg.textContent = `✅ Добавлено: ${track.name}`;
+    } catch(e) {
+      likeMsg.textContent = '❌ Ошибка, попробуй снова';
+    }
+  }
+
+  async function likeTrack() {
+    if (!currentArtist || !currentTrack) {
+      document.getElementById('likeMsg').textContent = '⏳ Дождись загрузки трека';
+      return;
+    }
+    if (!spotifyToken) {
+      loginSpotify();
+      return;
+    }
+    await addToSpotify();
+  }
+
+  checkSpotifyCallback();
 </script>
 
 </body>
