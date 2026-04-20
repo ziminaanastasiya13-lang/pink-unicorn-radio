@@ -678,8 +678,6 @@
   // ──────────── SPOTIFY ────────────
   const SPOTIFY_API = 'https://pink-unicorn-bot-production.up.railway.app';
   let userId = null;
-  let currentArtist = '';
-  let currentTrack = '';
 
   // Получаем ID пользователя из Telegram или localStorage
   function getUserId() {
@@ -699,10 +697,11 @@
     return uid;
   }
   userId = getUserId();
+  console.log('userId:', userId);
 
   async function checkSpotifyCallback() {
     try {
-      const res = await fetch(`https://pink-unicorn-bot-production.up.railway.app/spotify/check?user=${userId}`);
+      const res = await fetch(`${SPOTIFY_API}/spotify/check?user=${userId}`);
       const data = await res.json();
       if (data.connected) {
         document.getElementById('likeBtn').textContent = '❤️ Добавить в Spotify';
@@ -731,15 +730,15 @@
         } else {
           window.open(loginUrl, '_blank');
         }
-        likeMsg.textContent = '🔒 Открываю Spotify... ID: ' + userId;
+        likeMsg.textContent = '🔒 Открываю Spotify... (ID: ' + userId + ')';
         return;
       }
 
       // Добавляем трек
       likeMsg.textContent = '⏳ Добавляю...';
-const a = encodeURIComponent(currentArtist);
-const t = encodeURIComponent(currentTrack);
-const addRes = await fetch(`https://pink-unicorn-bot-production.up.railway.app/spotify/add?user=${userId}&artist=${a}&track=${t}`);
+      const a = encodeURIComponent(currentArtist);
+      const t = encodeURIComponent(currentTrack);
+      const addRes = await fetch(`${SPOTIFY_API}/spotify/add?user=${userId}&artist=${a}&track=${t}`);
       const addData = await addRes.json();
 
       if (addData.ok) {
