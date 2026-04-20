@@ -565,44 +565,60 @@
     document.getElementById('volPct').textContent = volLevel + '%';
   }
 
-  // Получение метаданных трека
+  // Метаданные
   const nowPlaying = document.getElementById('nowPlaying');
   const npArtist = document.getElementById('npArtist');
   const npTrack = document.getElementById('npTrack');
   let metaInterval = null;
 
+  function setTrack(full) {
+    full = (full || '').trim();
+    if (!full || full.length < 3) return false;
+    const d = full.indexOf(' - ');
+    if (d !== -1) {
+      npArtist.textContent = full.substring(0, d).trim();
+      npTrack.textContent = full.substring(d + 3).trim();
+    } else {
+      npArtist.textContent = full;
+      npTrack.textContent = '';
+    }
+    return true;
+  }
+
   async function fetchNowPlaying() {
+    // Метод 1: corsproxy.io
     try {
-      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/?lang=en';
-      const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url));
+      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/';
+      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), {signal: AbortSignal.timeout(5000)});
       if (res.ok) {
-        const data = await res.json();
-        const html = data.contents || '';
-
-        // Паттерн 1: Live\n| Исполнитель - Трек (из реального HTML)
-        const m1 = html.match(/Live[\s\S]{1,100}?\/track\/\d+\/">([^<]+)<\/a>/);
-        if (m1) {
-          const full = m1[1].trim();
-          const d = full.indexOf(' - ');
-          npArtist.textContent = d !== -1 ? full.substring(0, d) : full;
-          npTrack.textContent = d !== -1 ? full.substring(d + 3) : '';
-          return;
-        }
-
-        // Паттерн 2: любая ссылка на трек первая в списке
-        const m2 = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
-        if (m2) {
-          const full = m2[1].trim();
-          const d = full.indexOf(' - ');
-          npArtist.textContent = d !== -1 ? full.substring(0, d) : full;
-          npTrack.textContent = d !== -1 ? full.substring(d + 3) : '';
-          return;
-        }
+        const html = await res.text();
+        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
+        if (m && setTrack(m[1])) return;
       }
     } catch(e) {}
 
-    npArtist.textContent = 'Pink Unicorn Radio';
-    npTrack.textContent = '🎵 Live';
+    // Метод 2: allorigins
+    try {
+      const url = 'https://onlineradiobox.com/uz/pinkunicorn/playlist/';
+      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), {signal: AbortSignal.timeout(5000)});
+      if (res.ok) {
+        const html = await res.text();
+        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
+        if (m && setTrack(m[1])) return;
+      }
+    } catch(e) {}
+
+    // Метод 3: htmldate через другой прокси
+    try {
+      const res = await fetch('https://thingproxy.freeboard.io/fetch/https://onlineradiobox.com/uz/pinkunicorn/playlist/', {signal: AbortSignal.timeout(5000)});
+      if (res.ok) {
+        const html = await res.text();
+        const m = html.match(/\/track\/\d+\/">([^<]{5,})<\/a>/);
+        if (m && setTrack(m[1])) return;
+      }
+    } catch(e) {}
+
+    // Если ничего не сработало — не меняем текст
   }
 
   function startMeta() {
@@ -610,12 +626,12 @@
     npArtist.textContent = '⏳ Загрузка...';
     npTrack.textContent = '';
     fetchNowPlaying();
-    metaInterval = setInterval(fetchNowPlaying, 15000);
+    metaInterval = setInterval(fetchNowPlaying, 20000);
   }
 
   function stopMeta() {
     nowPlaying.style.display = 'none';
-    if (metaInterval) clearInterval(metaInterval);
+    if (metaInterval) { clearInterval(metaInterval); metaInterval = null; }
   }
 </script>
 
