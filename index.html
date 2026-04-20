@@ -270,6 +270,39 @@
     cursor: pointer;
   }
 
+  /* Now Playing */
+  .now-playing {
+    width: 100%;
+    background: rgba(255,45,155,0.08);
+    border: 1px solid rgba(255,45,155,0.2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .np-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .np-artist {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--pink);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .np-track {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Инфо блок */
   .info-row {
     width: 100%;
@@ -372,6 +405,13 @@
       <span class="vol-icon">🔊</span>
     </div>
 
+    <!-- Now Playing -->
+    <div class="now-playing" id="nowPlaying" style="display:none">
+      <div class="np-label">🎵 Сейчас играет</div>
+      <div class="np-artist" id="npArtist">—</div>
+      <div class="np-track" id="npTrack">—</div>
+    </div>
+
     <div class="info-row">
       <div class="info-item">
         <div class="info-label">Жанр</div>
@@ -440,6 +480,7 @@
     playBtn.classList.add('playing');
     errorMsg.classList.remove('show');
     urlIndex = 0;
+    startMeta();
   });
 
   audio.addEventListener('pause', () => {
@@ -481,6 +522,7 @@
       statusDot.className = 'status-dot';
       visualizer.classList.remove('active');
       playBtn.classList.remove('playing');
+      stopMeta();
     } else {
       errorMsg.classList.remove('show');
       urlIndex = 0;
@@ -494,6 +536,69 @@
 
   function setVolume(val) {
     audio.volume = val / 100;
+  }
+
+  // Получение метаданных трека
+  const nowPlaying = document.getElementById('nowPlaying');
+  const npArtist = document.getElementById('npArtist');
+  const npTrack = document.getElementById('npTrack');
+  let metaInterval = null;
+
+  async function fetchNowPlaying() {
+    try {
+      const res = await fetch('https://onlineradiobox.com/uz/pinkunicorn/playlist/', {
+        mode: 'no-cors'
+      });
+    } catch(e) {}
+
+    // Используем публичный API onlineradiobox
+    try {
+      const res = await fetch('https://cors-anywhere.herokuapp.com/https://onlineradiobox.com/uz/pinkunicorn/playlist/?cs=uz.pinkunicorn', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (res.ok) {
+        const text = await res.text();
+        const match = text.match(/class="track__title"[^>]*>([^<]+)<\/span>\s*[^<]*<span[^>]*>([^<]+)<\/span>/);
+        if (match) {
+          npArtist.textContent = match[1].trim();
+          npTrack.textContent = match[2].trim();
+          return;
+        }
+      }
+    } catch(e) {}
+
+    // Fallback — используем myradio24 API
+    try {
+      const res = await fetch('https://myradio24.com/unicorn?format=json');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.now_playing) {
+          const parts = data.now_playing.split(' - ');
+          if (parts.length >= 2) {
+            npArtist.textContent = parts[0].trim();
+            npTrack.textContent = parts.slice(1).join(' - ').trim();
+          } else {
+            npArtist.textContent = data.now_playing;
+            npTrack.textContent = '';
+          }
+        }
+      }
+    } catch(e) {
+      // Пробуем получить из ICY метаданных
+      npArtist.textContent = 'Pink Unicorn Radio';
+      npTrack.textContent = '🎵 Live Stream';
+    }
+  }
+
+  function startMeta() {
+    nowPlaying.style.display = 'block';
+    fetchNowPlaying();
+    metaInterval = setInterval(fetchNowPlaying, 15000);
+  }
+
+  function stopMeta() {
+    nowPlaying.style.display = 'none';
+    if (metaInterval) clearInterval(metaInterval);
   }
 </script>
 
