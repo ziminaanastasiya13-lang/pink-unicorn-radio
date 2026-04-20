@@ -396,7 +396,7 @@
   <div class="logo-wrap">
     <div class="unicorn-icon">🦄</div>
     <div class="station-name">Pink Unicorn<br>Radio</div>
-    <div class="genre-tag">Rock · Metal · Alternative</div>
+    <div class="genre-tag">Hardstyle · Hardcore · Gabber · Hard Dance</div>
   </div>
 
   <div class="visualizer" id="visualizer">
@@ -437,11 +437,11 @@
     <div class="info-row">
       <div class="info-item">
         <div class="info-label">Жанр</div>
-        <div class="info-value" style="font-size:10px;color:#ff2d9b">ROCK</div>
+        <div class="info-value" style="font-size:10px;color:#ff2d9b">HARDSTYLE</div>
       </div>
       <div class="info-item">
         <div class="info-label">Страна</div>
-        <div class="info-value" style="font-size:10px">UZBEKISTAN</div>
+        <div class="info-value" style="font-size:10px">🇺🇿 UZ</div>
       </div>
       <div class="info-item">
         <div class="info-label">Основан</div>
@@ -489,15 +489,21 @@
   let isPlaying = false;
 
   audio.volume = 0.8;
-// Media Session для фонового режима
-if ('mediaSession' in navigator) {
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: 'Live Stream',
-    artist: 'Pink Unicorn Radio',
-    album: 'Rock · Metal · Alternative',
-    artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
-  });
-}
+
+  // Media Session для фонового режима
+  function updateMediaSession(artist, track) {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track || 'Live Stream',
+        artist: artist || 'Pink Unicorn Radio',
+        album: 'Rock · Metal · Alternative',
+        artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
+      });
+      navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) togglePlay(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) togglePlay(); });
+    }
+  }
+
   audio.addEventListener('waiting', () => {
     statusText.textContent = 'Загрузка...';
     statusDot.className = 'status-dot';
@@ -593,33 +599,27 @@ if ('mediaSession' in navigator) {
     return true;
   }
 
- async function fetchNowPlaying() {
+  // URL нашего API на Railway — замени на свой после деплоя
+  // Формат: https://твой-проект.up.railway.app/
+  const API_URL = 'https://pink-unicorn-bot-production.up.railway.app/';
+
+  async function fetchNowPlaying() {
     try {
-      const res = await fetch('https://pink-unicorn-bot-production.up.railway.app/', {signal: AbortSignal.timeout(5000)});
+      const res = await fetch(API_URL, {signal: AbortSignal.timeout(5000)});
       if (res.ok) {
         const data = await res.json();
         if (data.artist && data.artist !== 'Pink Unicorn Radio') {
           npArtist.textContent = data.artist;
-         updateMediaSession(data.artist, data.track);
           npTrack.textContent = data.track || '';
+          updateMediaSession(data.artist, data.track);
           return;
         }
       }
     } catch(e) {}
     if (npArtist.textContent === '⏳ Загрузка...') {
-      npArtist.textContent = '—';
-      npTrack.textContent = '—';
-    }
-  }
-
-  ffunction updateMediaSession(artist, track) {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track || 'Live Stream',
-        artist: artist || 'Pink Unicorn Radio',
-        album: 'Rock · Metal · Alternative',
-        artwork: [{ src: 'https://static.wixstatic.com/media/6062a7_fbcc0346d0fe43ac8a6e08d6c6b915aa~mv2_d_1750_1750_s_2.png', sizes: '512x512', type: 'image/png' }]
-      });
+      npArtist.textContent = 'Pink Unicorn Radio';
+      npTrack.textContent = '🎵 Live';
+      updateMediaSession('Pink Unicorn Radio', 'Live Stream');
     }
   }
 
