@@ -639,12 +639,6 @@
           currentArtist = data.artist;
           currentTrack = data.track || '';
           updateMediaSession(data.artist, data.track, data.artwork);
-          // Показываем кнопку лайка и сбрасываем состояние
-          const likeBtn = document.getElementById('likeBtn');
-          likeBtn.style.display = 'block';
-          likeBtn.classList.remove('liked');
-          document.getElementById('likeIcon').textContent = '🤍';
-          document.getElementById('likeMsg').textContent = '';
           return;
         }
       }
