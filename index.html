@@ -479,7 +479,11 @@
     </div>
   </div>
 
- 
+  <div class="links">
+    <a class="link-btn" href="https://www.beatport.com/label/pink-unicorn-records/65562" target="_blank">🎵 Beatport</a>
+    <a class="link-btn" href="https://soundcloud.com/pinkunicornrec" target="_blank">☁️ SoundCloud</a>
+  </div>
+
 </div>
 
 <audio id="radio" preload="none"></audio>
@@ -496,7 +500,8 @@
   const STREAM_URLS = [
     'https://listen2.myradio24.com/unicorn',
     'https://streaming.slam.nl/web11_mp3',
-      ];
+    'http://cast2.my-ais.net:8022/stream',
+  ];
   let urlIndex = 0;
   const audio = document.getElementById('radio');
   const playBtn = document.getElementById('playBtn');
@@ -548,8 +553,7 @@
     playBtn.classList.remove('playing');
   });
 
-  audio.add
-   EventListener('error', () => {
+  audio.addEventListener('error', () => {
     if (!isPlaying) return;
     urlIndex++;
     if (urlIndex < STREAM_URLS.length) {
@@ -586,7 +590,7 @@
       urlIndex = 0;
       audio.src = STREAM_URLS[urlIndex];
       audio.play().catch(() => {});
-      playIcon.textContent = '⏸';
+      playIcon.textContent = '⏹';
       statusText.textContent = 'Подключение...';
       isPlaying = true;
     }
@@ -606,20 +610,8 @@
   const npArtist = document.getElementById('npArtist');
   const npTrack = document.getElementById('npTrack');
   let metaInterval = null;
-
-  function setTrack(full) {
-    full = (full || '').trim();
-    if (!full || full.length < 3) return false;
-    const d = full.indexOf(' - ');
-    if (d !== -1) {
-      npArtist.textContent = full.substring(0, d).trim();
-      npTrack.textContent = full.substring(d + 3).trim();
-    } else {
-      npArtist.textContent = full;
-      npTrack.textContent = '';
-    }
-    return true;
-  }
+  let currentArtist = '';
+  let currentTrack = '';
 
   // URL нашего API на Railway — замени на свой после деплоя
   // Формат: https://твой-проект.up.railway.app/
