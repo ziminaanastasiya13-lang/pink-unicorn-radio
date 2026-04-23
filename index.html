@@ -548,7 +548,8 @@
     playBtn.classList.remove('playing');
   });
 
-  audio.addEventListener('error', () => {
+  audio.add
+   EventListener('error', () => {
     if (!isPlaying) return;
     urlIndex++;
     if (urlIndex < STREAM_URLS.length) {
@@ -585,7 +586,7 @@
       urlIndex = 0;
       audio.src = STREAM_URLS[urlIndex];
       audio.play().catch(() => {});
-      playIcon.textContent = '⏹';
+      playIcon.textContent = '⏸';
       statusText.textContent = 'Подключение...';
       isPlaying = true;
     }
