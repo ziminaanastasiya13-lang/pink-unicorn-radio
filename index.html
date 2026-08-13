@@ -610,8 +610,7 @@
 
   // URL нашего API на Railway — замени на свой после деплоя
   // Формат: https://твой-проект.up.railway.app/
-  const API_URL = 'https://pink-unicorn-bot-production.up.railway.app/';
-
+const API_URL = 'https://pink-unicorn-bot.fly.dev/';
   async function fetchNowPlaying() {
     try {
       const res = await fetch(API_URL, {signal: AbortSignal.timeout(6000)});
